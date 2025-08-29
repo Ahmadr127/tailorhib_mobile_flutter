@@ -1,0 +1,47 @@
+    }
+  }
+
+  /// Mengambil galeri penjahit berdasarkan id
+  static Future<Map<String, dynamic>> getTailorGallery(int tailorId) async {
+    try {
+      print('Fetching tailor gallery for id: $tailorId');
+      final token = await getToken();
+
+      final headers = {
+        'Accept': 'application/json',
+        'Authorization': token != null ? 'Bearer $token' : '',
+      };
+
+      final response = await http.get(
+        Uri.parse('$baseUrl/tailors/$tailorId/gallery'),
+        headers: headers,
+      );
+
+      print('Tailor gallery response code: ${response.statusCode}');
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('Tailor gallery response: ${response.body}');
+
+        // Parse data gallery ke dalam list GalleryModel
+        final List<GalleryModel> galleryItems = [];
+
+        if (data['data'] != null && data['data'] is List) {
+          for (var item in data['data']) {
+            galleryItems.add(GalleryModel.fromJson(item));
+          }
+        }
+
+        return {
+          'success': true,
+          'gallery': galleryItems,
+          'message': data['message'] ?? 'Berhasil mendapatkan galeri penjahit',
+        };
+      } else {
+        return {
+          'success': false,
+          'gallery': <GalleryModel>[],
+          'message': 'Gagal mendapatkan galeri penjahit',
+        };
+      }
+    } catch (e) {

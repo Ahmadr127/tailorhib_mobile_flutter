@@ -1,0 +1,194 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'api_service.dart';
+
+class MidtransService {
+  // Konfigurasi Midtrans
+  static const String clientKey = 'SB-Mid-client-I_7aBDvvdRAJ3zSI';
+  static const String serverKey = 'SB-Mid-server-m_cMr-8mOqJoaorKXpXoWBoQ';
+  static const String transactionCode = 'G467202065';
+  
+  // Base URL untuk API
+  static final String baseUrl = ApiService.baseUrl;
+  
+  // Fungsi helper untuk mendapatkan access token
+  static Future<String> getAccessToken() async {
+    final token = await ApiService.getToken();
+    if (token == null) {
+      throw Exception('Token tidak ditemukan, silakan login kembali');
+    }
+    return token;
+  }
+  
+  // Metode untuk memeriksa status pembayaran
+  static Future<Map<String, dynamic>> checkPaymentStatus(int bookingId) async {
+    print('DEBUG: MidtransService.checkPaymentStatus() - Checking payment status for booking #$bookingId');
+    
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/bookings/$bookingId/payment-status'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${await getAccessToken()}',
+        },
+      );
+      
+      print('DEBUG: MidtransService.checkPaymentStatus() - Response status code: ${response.statusCode}');
+      print('DEBUG: MidtransService.checkPaymentStatus() - Response body: ${response.body.substring(0, min(200, response.body.length))}...');
+      
+      final jsonResponse = json.decode(response.body);
+      
+      if (response.statusCode == 200) {
+        // Log respons sukses
+        print('DEBUG: MidtransService.checkPaymentStatus() - Success! Payment status: ${jsonResponse['data']['payment_status']}');
+        return {
+          'success': true,
+          'data': jsonResponse['data'],
+          'message': jsonResponse['message'] ?? 'Berhasil mendapatkan status pembayaran',
+        };
+      } else {
+        // Log respons error
+        print('DEBUG: MidtransService.checkPaymentStatus() - API Error: ${jsonResponse['message']}');
+        return {
+          'success': false,
+          'message': jsonResponse['message'] ?? 'Gagal memeriksa status pembayaran',
+        };
+      }
+    } catch (e) {
+      // Log error
+      print('ERROR: MidtransService.checkPaymentStatus() - Exception: $e');
+      return {
+        'success': false,
+        'message': 'Terjadi kesalahan: $e',
+      };
+    }
+  }
+  
+  // Metode untuk menginisiasi pembayaran
+  static Future<Map<String, dynamic>> initiatePayment(int bookingId) async {
+    print('DEBUG: MidtransService.initiatePayment() - Initiating payment for booking #$bookingId');
+    
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/bookings/$bookingId/midtrans/pay'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${await getAccessToken()}',
+        },
+      );
+      
+      print('DEBUG: MidtransService.initiatePayment() - Response status code: ${response.statusCode}');
+      print('DEBUG: MidtransService.initiatePayment() - Response body: ${response.body.substring(0, min(200, response.body.length))}...');
+      
+      final jsonResponse = json.decode(response.body);
+      
+      if (response.statusCode == 200) {
+        print('DEBUG: MidtransService.initiatePayment() - Success! Response data: ${jsonResponse['data']}');
+        return {
+          'success': true,
+          'data': jsonResponse['data'],
+          'message': jsonResponse['message'] ?? 'Berhasil menginisiasi pembayaran',
+        };
+      } else {
+        print('DEBUG: MidtransService.initiatePayment() - API Error: ${jsonResponse['message']}');
+        return {
+          'success': false,
+          'message': jsonResponse['message'] ?? 'Gagal menginisiasi pembayaran',
+        };
+      }
+    } catch (e) {
+      print('ERROR: MidtransService.initiatePayment() - Exception: $e');
+      return {
+        'success': false,
+        'message': 'Terjadi kesalahan: $e',
+      };
+    }
+  }
+  
+  // Konversi status pembayaran ke teks yang user-friendly
+  static String getPaymentStatusText(String status) {
+    switch (status.toLowerCase()) {
+      case 'unpaid':
+        return 'Belum Dibayar';
+      case 'pending':
+        return 'Pembayaran Diproses';
+      case 'paid':
+        return 'Pembayaran Berhasil';
+      case 'success':
+        return 'Pembayaran Sukses';
+      case 'failed':
+        return 'Pembayaran Gagal';
+      case 'expired':
+        return 'Pembayaran Kadaluarsa';
+      case 'cancelled':
+        return 'Pembayaran Dibatalkan';
+      default:
+        return 'Status Tidak Diketahui';
+    }
+  }
+  
+  // Dapatkan warna berdasarkan status pembayaran
+  static Color getPaymentStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'unpaid':
+        return const Color(0xFF9AA0A6); // Abu-abu
+      case 'pending':
+        return const Color(0xFFFFA000); // Orange
+      case 'paid':
+      case 'success':
+        return const Color(0xFF34A853); // Hijau
+      case 'failed':
+      case 'expired':
+      case 'cancelled':
+        return const Color(0xFFEA4335); // Merah
+      default:
+        return const Color(0xFF9AA0A6); // Abu-abu
+    }
+  }
+
+  // Metode untuk memeriksa status pembayaran secara manual
+  static Future<Map<String, dynamic>> checkPaymentStatusManual(int bookingId) async {
+    print('DEBUG: MidtransService.checkPaymentStatusManual() - Checking payment status for booking #$bookingId');
+    
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/bookings/$bookingId/payment-status/check'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': 'Bearer ${await getAccessToken()}',
+        },
+      );
+      
+      print('DEBUG: MidtransService.checkPaymentStatusManual() - Response status code: ${response.statusCode}');
+      print('DEBUG: MidtransService.checkPaymentStatusManual() - Response body: ${response.body.substring(0, min(200, response.body.length))}...');
+      
+      final jsonResponse = json.decode(response.body);
+      
+      if (response.statusCode == 200) {
+        print('DEBUG: MidtransService.checkPaymentStatusManual() - Success! Payment status: ${jsonResponse['data']['payment_status']}');
+        return {
+          'success': true,
+          'data': jsonResponse['data'],
+          'message': jsonResponse['message'] ?? 'Status pembayaran berhasil diperbarui',
+        };
+      } else {
+        print('DEBUG: MidtransService.checkPaymentStatusManual() - API Error: ${jsonResponse['message']}');
+        return {
+          'success': false,
+          'message': jsonResponse['message'] ?? 'Gagal memeriksa status pembayaran',
+        };
+      }
+    } catch (e) {
+      print('ERROR: MidtransService.checkPaymentStatusManual() - Exception: $e');
+      return {
+        'success': false,
+        'message': 'Terjadi kesalahan: $e',
+      };
+    }
+  }
+}
